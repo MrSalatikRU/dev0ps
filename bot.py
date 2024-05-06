@@ -6,6 +6,7 @@ import paramiko
 import os
 from dotenv import load_dotenv
 import time
+import psycopg2 as ps
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO, filename='logfile.log' 
@@ -20,6 +21,39 @@ PORT = os.getenv("PORT")
 USER_NAME = os.getenv("USER_NAME")
 PASSWORD = os.getenv("PASSWORD")
 
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_NAME")
+
+
+def db_execute(command):
+    res = "error"
+    try:
+        connection = ps.connect(
+            user="postgres",
+            password="postgres",
+            host="192.168.126.172",
+            port="5432", 
+            database="telegram_bot"
+        )
+
+        cursor = connection.cursor()
+        cursor.execute(command)
+        data = cursor.fetchall()
+        res = ""
+        for row in data:
+            res += row[1] + "\n"
+        logging.info(f"db command {command} executed")
+    except (Exception, ps.Error) as error:
+        logging.error("ERROR connection to PostgreSQL: %s", error)
+    finally:
+        if connection is not None:
+            cursor.close()
+            connection.close()
+    
+    return res
 
 def messageSendMD(update: Update, msg):
     max_length = 4000
@@ -40,7 +74,6 @@ def messageSendMD(update: Update, msg):
             parts.append(current_part)
 
     for i in parts:
-        print(i)
         update.message.reply_text("```"+i+'```', parse_mode=ParseMode.MARKDOWN)
         time.sleep(0.2)
 
@@ -67,6 +100,12 @@ def commandVerifyPassword(update: Update, context):
     update.message.reply_text('Введите пароль для проверки: ')
 
     return 'verify_password'
+
+def commandGetEmails(update: Update, context):
+    update.message.reply_text("Сохраненные телефонные номера:\n"+db_execute("SELECT * FROM emails;"))
+
+def commandGetPhones(update: Update, context):
+    update.message.reply_text("Сохраненные почтовые адреса:\n"+db_execute("SELECT * FROM phones;"))
 
 # 3. Мониторинг Linux-системы
 def commandLinux(update: Update, context):
@@ -112,6 +151,9 @@ def commandLinux(update: Update, context):
         case "/get_services":
             command = "systemctl list-units --type=service --state=running"
 
+        case "/get_repl_logs":
+            command = "cat /var/log/postgresql/postgresql-15-main.log | grep repl"
+
         case _:
             return ConversationHandler.END
     
@@ -148,16 +190,18 @@ def findEmailAddresses(update: Update, context):
         logging.info(f"User {update.effective_user.username}:/find_email got no addresses")
 
         update.message.reply_text('Телефонные номера не найдены')
-        return
+        return ConversationHandler.END
     
     emailAddresses = "Найденные почтовые адреса: \n"
     for i in range(len(emailList)):
         emailAddresses += f'{i+1}. {emailList[i]}\n'
         
     update.message.reply_text(emailAddresses)
+    context.user_data['emails'] = emailAddresses
 
     logging.info(f"User {update.effective_user.username}:/find_email got {len(emailList)} addresses")
-    return ConversationHandler.END
+
+    return "ask_for_save_emails"
 
 def findPhoneNumbers (update: Update, context):
     logging.debug(f"User {update.effective_user.username}: /find_phone - sent text")
@@ -172,7 +216,7 @@ def findPhoneNumbers (update: Update, context):
         logging.info(f"User {update.effective_user.username}:/find_phone got no phones")
 
         update.message.reply_text('Телефонные номера не найдены')
-        return
+        return ConversationHandler.END
     
     phoneNumbers = "Найденные телефонные номера: \n"
     for i in range(len(phoneNumberList)):
@@ -204,6 +248,20 @@ def veriyfPassword(update: Update, context):
         return ConversationHandler.END
 
 
+def saveEmailAddresses(update: Update, context):
+    update.message.reply_text("Сохранить данные в базу данных? (Да/Нет)")
+    if update.message.text() == "Да":
+        
+        if db_execute("")
+        return ConversationHandler.END
+    else:
+        return ConversationHandler.END
+    
+
+def savePhoneNumbers(update: Update, context):
+    pass
+
+
 def main():
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
@@ -214,6 +272,7 @@ def main():
         entry_points=[CommandHandler('find_email', commandFindEmailAddresses)],
         states={
             'find_email': [MessageHandler(Filters.text & ~Filters.command, findEmailAddresses)],
+            'ask_for_save_emails': [MessageHandler(Filters.text & ~Filters.command, saveEmailAddresses)],
         },
         fallbacks=[]
     )
@@ -221,6 +280,7 @@ def main():
         entry_points=[CommandHandler('find_phone_number', commandFindPhoneNumbers)],
         states={
             'find_phone_number': [MessageHandler(Filters.text & ~Filters.command, findPhoneNumbers)],
+            'ask_for_save_phones': [MessageHandler(Filters.text & ~Filters.command, savePhoneNumbers)],
         },
         fallbacks=[]
     )
@@ -234,9 +294,12 @@ def main():
 
 	# Регистрируем обработчики команд
     #dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CommandHandler("get_emails", commandGetEmails))
+    dp.add_handler(CommandHandler("get_phone_numbers", commandGetPhones))
     dp.add_handler(convHandlerFindEmailAddresses)
     dp.add_handler(convHandlerFindPhoneNumbers)
     dp.add_handler(convHandlerVerifyPassword)
+
     dp.add_handler(MessageHandler(Filters.command, commandLinux))
 
 		
