@@ -30,26 +30,30 @@ DB_NAME = os.getenv("DB_NAME")
 
 def db_execute(command):
     res = "error"
+    
     try:
         connection = ps.connect(
-            user="postgres",
-            password="postgres",
-            host="192.168.126.172",
-            port="5432", 
-            database="telegram_bot"
+            user=DB_USER,
+            password=DB_PASSWORD,
+            host=DB_HOST,
+            port=DB_PORT, 
+            database=DB_NAME
         )
 
         cursor = connection.cursor()
         cursor.execute(command)
-        data = cursor.fetchall()
         res = ""
+
+        data = cursor.fetchall()
         for row in data:
             res += row[1] + "\n"
+
         logging.info(f"db command {command} executed")
     except (Exception, ps.Error) as error:
         logging.error("ERROR connection to PostgreSQL: %s", error)
     finally:
         if connection is not None:
+            connection.commit()
             cursor.close()
             connection.close()
     
@@ -79,19 +83,19 @@ def messageSendMD(update: Update, msg):
 
 # Обработчик команд
 # 1. Поиск информации в тексте и вывод ее
-def commandFindPhoneNumbers(update: Update, context):
-    logging.info(f"User {update.effective_user.username} call /find_phone")
-
-    update.message.reply_text('Введите текст для поиска телефонных номеров: ')
-
-    return 'find_phone_number'
-
 def commandFindEmailAddresses(update: Update, context):
     logging.info(f"User {update.effective_user.username} call /find_email")
 
     update.message.reply_text('Введите текст для поиска почтовых адресов: ')
 
     return 'find_email'
+
+def commandFindPhoneNumbers(update: Update, context):
+    logging.info(f"User {update.effective_user.username} call /find_phone")
+
+    update.message.reply_text('Введите текст для поиска телефонных номеров: ')
+
+    return 'find_phone_number'
 
 # 2. Проверка сложности пароля регулярным выражением. 
 def commandVerifyPassword(update: Update, context):
@@ -152,7 +156,7 @@ def commandLinux(update: Update, context):
             command = "systemctl list-units --type=service --state=running"
 
         case "/get_repl_logs":
-            command = "cat /var/log/postgresql/postgresql-15-main.log | grep repl"
+            command = "tail /var/log/postgresql/postgresql-15-main.log -n 30 | grep repl"
 
         case _:
             return ConversationHandler.END
@@ -196,8 +200,8 @@ def findEmailAddresses(update: Update, context):
     for i in range(len(emailList)):
         emailAddresses += f'{i+1}. {emailList[i]}\n'
         
-    update.message.reply_text(emailAddresses)
-    context.user_data['emails'] = emailAddresses
+    update.message.reply_text(emailAddresses + "\nСохранить данные в базу данных? (Да/Нет)")
+    context.user_data['emailList'] = emailList
 
     logging.info(f"User {update.effective_user.username}:/find_email got {len(emailList)} addresses")
 
@@ -222,12 +226,14 @@ def findPhoneNumbers (update: Update, context):
     for i in range(len(phoneNumberList)):
         phoneNumbers += f'{i+1}. {phoneNumberList[i]}\n'
         
-    update.message.reply_text(phoneNumbers)
+    update.message.reply_text(phoneNumbers + "\nСохранить данные в базу данных? (Да/Нет)")
+    context.user_data['phoneNumberList'] = phoneNumberList
 
     logging.info(f"User {update.effective_user.username}:/find_phone got {len(phoneNumberList)} phones")
-    return ConversationHandler.END
 
-def veriyfPassword(update: Update, context):
+    return "ask_for_save_phones"
+
+def verifyPassword(update: Update, context):
     logging.debug(f"User {update.effective_user.username}: /verify_password - sent password")
 
     user_input = update.message.text
@@ -249,17 +255,39 @@ def veriyfPassword(update: Update, context):
 
 
 def saveEmailAddresses(update: Update, context):
-    update.message.reply_text("Сохранить данные в базу данных? (Да/Нет)")
-    if update.message.text() == "Да":
+    if update.message.text == "Да":
         
-        if db_execute("")
+        db_command = "INSERT INTO emails (email) VALUES "
+        for i in context.user_data["emailList"]:
+            db_command += f"('{i}'),"
+        db_command = db_command[:-1] + "RETURNING *;"
+        
+        if db_execute(db_command) != "error":
+            update.message.reply_text("Данные сохранены")
+        else:
+            update.message.reply_text("Данные не сохранены из за ошибки в базе данных")
+
         return ConversationHandler.END
     else:
         return ConversationHandler.END
     
 
 def savePhoneNumbers(update: Update, context):
-    pass
+    if update.message.text == "Да":
+        
+        db_command = "INSERT INTO phones (phone) VALUES "
+        for i in context.user_data["phoneNumberList"]:
+            db_command += f"('{i}'),"
+        db_command = db_command[:-1] + "RETURNING *;"
+        
+        if db_execute(db_command) != "error":
+            update.message.reply_text("Данные сохранены")
+        else:
+            update.message.reply_text("Данные не сохранены из за ошибки в базе данных")
+
+        return ConversationHandler.END
+    else:
+        return ConversationHandler.END
 
 
 def main():
@@ -287,7 +315,7 @@ def main():
     convHandlerVerifyPassword = ConversationHandler(
         entry_points=[CommandHandler('verify_password', commandVerifyPassword)],
         states={
-            'verify_password': [MessageHandler(Filters.text & ~Filters.command, veriyfPassword)],
+            'verify_password': [MessageHandler(Filters.text & ~Filters.command, verifyPassword)],
         },
         fallbacks=[]
     )
