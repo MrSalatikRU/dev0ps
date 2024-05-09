@@ -31,6 +31,17 @@ services:
     networks:
       - bot_network
 
+  db_repl:
+    build: 
+      context: ./db_repl
+    container_name: ${DB_REPL_HOST}
+    environment:
+      POSTGRES_USER: ${DB_REPL_USER}
+      POSTGRES_PASSWORD: ${DB_REPL_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
+    networks:
+      - bot_network
+
 volumes:
   pgdata: {}
 

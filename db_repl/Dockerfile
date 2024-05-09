@@ -1,4 +1,4 @@
-#FROM postgres:latest
+FROM postgres:latest
 
 #WORKDIR /db_d
 
