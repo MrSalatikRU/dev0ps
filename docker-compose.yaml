@@ -1,0 +1,39 @@
+version: '3'
+
+services:
+  bot:
+    build:
+      context: ./bot
+    env_file: .env
+    environment:
+      RM_HOST: ${RM_HOST}
+      RM_PORT: ${RM_PORT}
+      RM_USER: ${RM_USER}
+      RM_PASSWORD: ${RM_PASSWORD}
+    depends_on:
+      - db
+    networks:
+      - bot_network
+
+  db:
+    build:
+      context: ./db
+    container_name: ${DB_HOST}
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    networks:
+      - bot_network
+
+volumes:
+  pgdata: {}
+
+networks:
+  bot_network:
+    driver: bridge

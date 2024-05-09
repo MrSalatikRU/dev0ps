@@ -13,20 +13,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-load_dotenv()
-TOKEN = os.getenv("TOKEN")
+TOKEN = os.environ["TOKEN"]
 
-HOST = os.getenv("HOST")
-PORT = os.getenv("PORT")
-USER_NAME = os.getenv("USER_NAME")
-PASSWORD = os.getenv("PASSWORD")
+HOST = os.environ["RM_HOST"]
+PORT = os.environ["RM_PORT"]
+USER_NAME = os.environ["RM_USER"]
+PASSWORD = os.environ["RM_PASSWORD"]
 
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
-DB_NAME = os.getenv("DB_NAME")
-
+DB_USER = os.environ["DB_USER"]
+DB_PASSWORD = os.environ["DB_PASSWORD"]
+DB_HOST = os.environ["DB_HOST"]
+DB_PORT = os.environ["DB_PORT"]
+DB_NAME = os.environ["DB_DATABASE"]
 
 def db_execute(command):
     res = "error"
@@ -79,7 +77,7 @@ def messageSendMD(update: Update, msg):
 
     for i in parts:
         update.message.reply_text("```"+i+'```', parse_mode=ParseMode.MARKDOWN)
-        time.sleep(0.2)
+        time.sleep(0.1)
 
 # Обработчик команд
 # 1. Поиск информации в тексте и вывод ее
@@ -156,7 +154,7 @@ def commandLinux(update: Update, context):
             command = "systemctl list-units --type=service --state=running"
 
         case "/get_repl_logs":
-            command = "tail /var/log/postgresql/postgresql-15-main.log -n 30 | grep repl"
+            command = "cat /var/log/postgresql/postgresql-15-main.log | grep repl | tail -n 30"
 
         case _:
             return ConversationHandler.END
