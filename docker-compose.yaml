@@ -1,5 +1,15 @@
 version: '3'
 
+x-postgres-common:
+  &postgres-common
+  user: postgres
+  restart: always
+  healthcheck:
+    test: 'pg_isready -U postgres --dbname=postgres'
+    interval: 10s
+    timeout: 5s
+    retries: 5
+
 services:
   bot:
     build:
@@ -16,6 +26,7 @@ services:
       - bot_network
 
   db:
+    <<: *postgres-common
     build:
       context: ./db
     container_name: ${DB_HOST}
@@ -23,27 +34,55 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_DATABASE}
+    command: |
+      -c listen_addresses='*'
+      -c archive_mode=on 
+      -c archive_command='cp %p /oracle/pg_data/archive/%f' 
+      -c max_wal_senders=10 
+      -c wal_level=replica 
+      -c wal_log_hints=on
+      -c log_replication_commands=on
+
+      -c logging_collector=on
+      
+      -c log_filename='pglog.log'
+      -c log_directory='log'
+      -c log_rotation_size=0
+      -c log_truncate_on_rotation=on
     volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - '5432:5432'
     networks:
       - bot_network
 
   db_repl:
+    <<: *postgres-common
     build: 
       context: ./db_repl
     container_name: ${DB_REPL_HOST}
     environment:
-      POSTGRES_USER: ${DB_REPL_USER}
-      POSTGRES_PASSWORD: ${DB_REPL_PASSWORD}
-      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      PGUSER: ${DB_REPL_USER}
+      PGPASSWORD: ${DB_REPL_PASSWORD}
+    command: |
+      bash -c "
+      until pg_basebackup -R -h db --pgdata=/var/lib/postgresql/data --slot=replication_slot --port=5432
+      do
+      echo 'Waiting for primary to connect...'
+      sleep 2s
+      done
+      echo 'Backup done, starting replica...'
+      chmod 0700 /var/lib/postgresql/data
+      postgres
+      "
+    depends_on:
+      - db
+    ports:
+      - '5433:5432'
     networks:
       - bot_network
-
-volumes:
-  pgdata: {}
 
 networks:
   bot_network:

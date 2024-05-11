@@ -43,8 +43,12 @@ def db_execute(command):
         res = ""
 
         data = cursor.fetchall()
-        for row in data:
-            res += row[1] + "\n"
+        try:
+            for row in data:
+                res += row[1] + "\n"
+        except:
+            for row in data[-30:]:
+                res += row[0] + "\n"
 
         logging.info(f"db command {command} executed")
     except (Exception, ps.Error) as error:
@@ -104,10 +108,14 @@ def commandVerifyPassword(update: Update, context):
     return 'verify_password'
 
 def commandGetEmails(update: Update, context):
-    update.message.reply_text("Сохраненные телефонные номера:\n"+db_execute("SELECT * FROM emails;"))
+    update.message.reply_text("Сохраненные почтовые адреса:\n"+db_execute("SELECT * FROM emails;"))
 
 def commandGetPhones(update: Update, context):
-    update.message.reply_text("Сохраненные почтовые адреса:\n"+db_execute("SELECT * FROM phones;"))
+    update.message.reply_text("Сохраненные телефонные номера:\n"+db_execute("SELECT * FROM phones;"))
+
+def commandGetReplLogs(update: Update, context):
+    data = db_execute("SELECT * FROM pglog;")
+    messageSendMD(update, data)
 
 # 3. Мониторинг Linux-системы
 def commandLinux(update: Update, context):
@@ -152,9 +160,6 @@ def commandLinux(update: Update, context):
 
         case "/get_services":
             command = "systemctl list-units --type=service --state=running"
-
-        case "/get_repl_logs":
-            command = "cat /var/log/postgresql/postgresql-15-main.log | grep repl | tail -n 30"
 
         case _:
             return ConversationHandler.END
@@ -269,7 +274,6 @@ def saveEmailAddresses(update: Update, context):
     else:
         return ConversationHandler.END
     
-
 def savePhoneNumbers(update: Update, context):
     if update.message.text == "Да":
         
@@ -326,6 +330,7 @@ def main():
     dp.add_handler(convHandlerFindPhoneNumbers)
     dp.add_handler(convHandlerVerifyPassword)
 
+    dp.add_handler(CommandHandler("get_repl_logs", commandGetReplLogs))
     dp.add_handler(MessageHandler(Filters.command, commandLinux))
 
 		
