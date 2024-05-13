@@ -1,0 +1,6 @@
+[hosts]
+bot_server ansible_host=192.168.126.168 ansible_user=ansible ansible_password=ansible
+
+[servers]
+db_server1 ansible_host=192.168.126.175 ansible_user=ansible ansible_password=ansible
+db_server2 ansible_host=192.168.126.178 ansible_user=ansible ansible_password=ansible
