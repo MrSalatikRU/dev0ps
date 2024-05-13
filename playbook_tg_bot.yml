@@ -102,6 +102,12 @@
   hosts: db_server1
   become: true
   tasks:
+    - name: Create directory for archive
+      command: mkdir -p /oracle/pg_data/archive
+
+    - name: Own postgres for archive directory
+      command: chown -R postgres:postgres /oracle/pg_data/archive
+      
     - name: Restart postgres
       service:
         name: postgresql
@@ -179,7 +185,7 @@
       git:
         repo: https://github.com/MrSalatikRU/dev0ps.git
         dest: "{{ PROJECT_DEST }}"
-        version: ansible_files
+        version: ansible-files
     
     - name: Install requirements
       pip:
@@ -206,5 +212,3 @@
 
     - name: Start bot
       command: python3 {{ PROJECT_DEST }}/bot.py
-      debug:
-        msg: "Bot Started !"
