@@ -27,6 +27,3 @@ COPY hba FROM '/var/lib/postgresql/data/pg_hba.conf';
 INSERT INTO hba (lines) VALUES ('host replication repl_user 0.0.0.0/0 md5'); 
 COPY hba TO '/var/lib/postgresql/data/pg_hba.conf'; 
 SELECT pg_reload_conf();
-
-
-

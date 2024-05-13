@@ -1,6 +1,6 @@
 # PT_Start-DevOps
 
-requre .env:
+require .env file:
 ```Shell
 TOKEN = token # будет содержать токен бота
 

@@ -8,23 +8,25 @@ from dotenv import load_dotenv
 import time
 import psycopg2 as ps
 
+load_dotenv()
+
+LOG_DEST = os.getenv("PROJECT_DEST")
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO, filename='logfile.log' 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO, filename=f'{LOG_DEST}/logfile.log' 
 )
 logger = logging.getLogger(__name__)
 
-TOKEN = os.environ["TOKEN"]
+TOKEN = os.getenv("TOKEN")
 
-HOST = os.environ["RM_HOST"]
-PORT = os.environ["RM_PORT"]
-USER_NAME = os.environ["RM_USER"]
-PASSWORD = os.environ["RM_PASSWORD"]
-
-DB_USER = os.environ["DB_USER"]
-DB_PASSWORD = os.environ["DB_PASSWORD"]
-DB_HOST = os.environ["DB_HOST"]
-DB_PORT = os.environ["DB_PORT"]
-DB_NAME = os.environ["DB_DATABASE"]
+HOST = os.getenv("RM_HOST")
+PORT = os.getenv("RM_PORT")
+USER_NAME = os.getenv("RM_USER")
+PASSWORD = os.getenv("RM_PASSWORD")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_DATABASE")
 
 def db_execute(command):
     res = "error"
