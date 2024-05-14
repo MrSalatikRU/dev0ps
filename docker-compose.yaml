@@ -52,8 +52,6 @@ services:
       -c log_directory='log'
       -c log_rotation_size=0
       -c log_truncate_on_rotation=on
-    volumes:
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - '5432:5432'
     networks:
