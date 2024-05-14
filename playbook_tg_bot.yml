@@ -59,6 +59,7 @@
     - name: Configure "postgres.conf"
       command: |
         psql 
+        -c "CREATE USER {{ DB_USER }} PASSWORD '{{ DB_PASSWORD }}';" \
         -c "ALTER ROLE {{ DB_USER }} PASSWORD '{{ DB_PASSWORD }}';" \
         -c "CREATE USER {{ DB_REPL_USER }} WITH REPLICATION ENCRYPTED PASSWORD '{{ DB_REPL_PASSWORD }}';" \
         -c "SELECT pg_create_physical_replication_slot('replication_slot');" \
@@ -86,16 +87,19 @@
 
     - name: Configure database
       command: |
-        psql db_telegram_bot
+        psql {{ DB_DATABASE }}
         -c "CREATE TABLE IF NOT EXISTS emails ( id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL);" \
         -c "CREATE TABLE IF NOT EXISTS phones ( id SERIAL PRIMARY KEY, phone VARCHAR(255) NOT NULL);" \
         -c "CREATE EXTENSION file_fdw; CREATE SERVER pglog FOREIGN DATA WRAPPER file_fdw; CREATE FOREIGN TABLE pglog ( log_line text ) SERVER pglog OPTIONS (filename 'log/pglog.log', format 'text');"
+        -c "GRANT SELECT, INSERT ON emails TO {{ DB_USER }}; GRANT ALL ON SEQUENCE emails_id_seq TO {{ DB_USER }};"
+        -c "GRANT SELECT, INSERT ON phones TO {{ DB_USER }}; GRANT ALL ON SEQUENCE phones_id_seq TO {{ DB_USER }};"
+        -c "GRANT SELECT, INSERT ON pglog TO {{ DB_USER }};"
 
     - name: Configure "pg_hba.conf"
       blockinfile:
         dest: "{{ directory_path }}/pg_hba.conf"
         block: |
-          host all all 0.0.0.0/0 password
+          host all {{ DB_USER }} 0.0.0.0/0 password
           host    replication     {{ DB_REPL_USER }}       0.0.0.0/0                md5
     
 - name: Restart postgres
